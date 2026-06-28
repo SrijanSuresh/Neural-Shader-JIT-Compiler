@@ -1,0 +1,15 @@
+# secrets — never commit the real key
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# C++ build output
+build/
+
+# OS
+.DS_Store
+Thumbs.db
