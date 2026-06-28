@@ -1,4 +1,4 @@
-# Multimodal Shader JIT Compiler
+# Neural Shader JIT Compiler
 
 A real-time GPU shader evolution system powered by **Cerebras ultra-fast inference** (Gemma 4 31B). The AI *watches* what the GPU renders, critiques it, and rewrites the GLSL shader code live — full round-trip in ~4 seconds across four domains: dark fantasy, anime, biomedical, and cosmic.
 
@@ -35,8 +35,8 @@ A 31B multimodal model on a standard GPU cluster takes **45–90 seconds** per c
 ### 1. Clone
 
 ```bash
-git clone https://github.com/SrijanSuresh/Multimodal-JIT-compiler
-cd Multimodal-JIT-compiler
+git clone https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler
+cd Neural-Shader-JIT-Compiler
 ```
 
 ### 2. Set your API key
