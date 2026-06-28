@@ -45,6 +45,16 @@ target_compile_options(shader_jit_engine PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wno-unused-parameter>
 )
 
+# httplib requires Winsock2 on Windows; NOMINMAX prevents min/max macro clashes
+if (WIN32)
+    target_compile_definitions(shader_jit_engine PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+        _WIN32_WINNT=0x0A00
+    )
+    target_link_libraries(shader_jit_engine PRIVATE ws2_32)
+endif()
+
 # Copy shaders next to the binary so relative paths work at runtime
 add_custom_command(TARGET shader_jit_engine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
