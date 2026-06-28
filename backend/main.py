@@ -89,7 +89,9 @@ async def compile_shader(req: CompileRequest) -> CompileResponse:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    content = response.choices[0].message.content
+    content = response.choices[0].message.content  # type: ignore[union-attr]
+    if not content:
+        raise HTTPException(status_code=502, detail="Empty response from model")
     try:
         data = json.loads(content)
         return CompileResponse(glsl_fragment=data["glsl_fragment"])
