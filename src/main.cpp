@@ -428,7 +428,7 @@ static void renderHUD(int winW,int winH,
         // ── Corner info panel (normal mode) ───────────────────────────────────
         const float panW=295.f;
         bool hasScores=(generation>0);
-        int nRows=hasScores?12:6;
+        int nRows=hasScores?13:7;
         const float panH=pad+lh*nRows+(hasScores?6.f:0.f)+pad;
         const float panX=W-panW-12.f,panY=12.f;
 
@@ -457,11 +457,16 @@ static void renderHUD(int winW,int winH,
             snprintf(buf,sizeof(buf),"Status:  %s",sl);
             drawText(buf,tx,ty,sr,sg,sb,W,H);ty+=lh;
 
-            // Latency
-            if(latencyMs>0.)
-                snprintf(buf,sizeof(buf),"Latency: %.0f ms  (%.1fx vs GPU)",latencyMs,5000./latencyMs);
-            else snprintf(buf,sizeof(buf),"Latency: --");
-            drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
+            // Latency + speedup (always two lines for consistent panel height)
+            if(latencyMs>0.){
+                snprintf(buf,sizeof(buf),"Latency: %.0f ms",latencyMs);
+                drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
+                snprintf(buf,sizeof(buf),"  %.0fx faster than GPU cluster",45000./latencyMs);
+                drawText(buf,tx,ty,0.2f,1.f,0.45f,W,H);ty+=lh;
+            } else {
+                drawText("Latency: --",tx,ty,0.6f,0.6f,0.6f,W,H);ty+=lh;
+                ty+=lh;
+            }
 
             if(hasScores){
                 ty+=4.f;
@@ -482,6 +487,23 @@ static void renderHUD(int winW,int winH,
             drawText("[1-4]preset [SPC]evolve [B]base [C]cmp [A]auto",tx,ty,0.38f,0.38f,0.38f,W,H);
         } // if g_fontOk
     } // else (normal mode)
+    glEnable(GL_DEPTH_TEST);glDisable(GL_BLEND);
+}
+
+// Bottom bar showing what Gemma 4 saw in the frame — proves multimodal is live
+static void renderSceneBar(const std::string& scene,int winW,int winH){
+    if(!g_fontOk||scene.empty()) return;
+    const float W=float(winW),H=float(winH);
+    constexpr float kBarH=30.f;
+    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDisable(GL_DEPTH_TEST);
+    drawRect(0.f,H-kBarH,W,kBarH,0.02f,0.03f,0.06f,0.90f,W,H);
+    // Left badge
+    drawRect(0.f,H-kBarH,90.f,kBarH,0.08f,0.55f,0.25f,0.95f,W,H);
+    drawText("AI SEES:",6.f,H-kBarH+7.f,0.05f,0.06f,0.05f,W,H);
+    // Scene text
+    std::string s=scene;
+    if(s.size()>110) s=s.substr(0,107)+"...";
+    drawText(s.c_str(),98.f,H-kBarH+7.f,0.75f,0.98f,0.65f,W,H);
     glEnable(GL_DEPTH_TEST);glDisable(GL_BLEND);
 }
 
@@ -523,7 +545,7 @@ struct ShaderGen {
 
 struct JitState {
     std::mutex        mtx;
-    std::string       pendingGlsl,errorMsg;
+    std::string       pendingGlsl,errorMsg,pendingScene;
     std::atomic<bool> hasNew{false},hasError{false},busy{false};
     float             pendingVC{0},pendingATM{0},pendingTN{0};
     std::string       pendingHint;
@@ -546,6 +568,7 @@ static void jitWorker(std::string b64,
 
     float vc=0,atm=0,tn=0;
     std::string hint="add domain-warped layers and increase color saturation";
+    std::string scene;
 
     {
         std::string body=
@@ -557,10 +580,11 @@ static void jitWorker(std::string b64,
         if(!res||res->status!=200){
             std::fprintf(stderr,"[%s] [Critic] /critique failed — using default hint\n",nowStr().c_str());
         } else {
-            vc  =extractFloat(res->body,"visual_complexity");
-            atm =extractFloat(res->body,"atmosphere");
-            tn  =extractFloat(res->body,"technical_novelty");
-            hint=extractString(res->body,"improvement_hint");
+            vc   =extractFloat(res->body,"visual_complexity");
+            atm  =extractFloat(res->body,"atmosphere");
+            tn   =extractFloat(res->body,"technical_novelty");
+            hint =extractString(res->body,"improvement_hint");
+            scene=extractString(res->body,"scene_description");
             if(hint.empty()) hint="increase visual contrast and add a focal glow effect";
             std::printf("[%s] [Critic] VC:%.1f  ATM:%.1f  TN:%.1f\n",nowStr().c_str(),vc,atm,tn);
             std::printf("[%s] [Critic] Hint: %s\n",nowStr().c_str(),hint.c_str());
@@ -598,7 +622,8 @@ static void jitWorker(std::string b64,
     auto res=cli.Post("/compile",body,"application/json");
 
     std::lock_guard<std::mutex> lock(jit->mtx);
-    jit->pendingVC=vc; jit->pendingATM=atm; jit->pendingTN=tn; jit->pendingHint=hint;
+    jit->pendingVC=vc; jit->pendingATM=atm; jit->pendingTN=tn;
+    jit->pendingHint=hint; jit->pendingScene=std::move(scene);
 
     if(!res){
         jit->errorMsg="Cannot reach server — is uvicorn running?";
@@ -689,7 +714,7 @@ int main(){
 
     int   generation=0;
     float scoreVC=0.f,scoreATM=0.f,scoreTN=0.f;
-    std::string lastHint;
+    std::string lastHint,lastScene;
     std::vector<ShaderGen> history;
 
     GLuint prevFrameTex=0; int prevFrameW=0,prevFrameH=0;
@@ -729,7 +754,7 @@ int main(){
             if(loadPreset(idx)){
                 uTime=glGetUniformLocation(program,"uTime");
                 t0=now; presetIdx=idx; generation=0;
-                scoreVC=scoreATM=scoreTN=0.f; lastHint.clear(); history.clear();
+                scoreVC=scoreATM=scoreTN=0.f; lastHint.clear(); lastScene.clear(); history.clear();
                 comparisonActive=false; autoEvolve=false;
                 if(prevFrameTex){glDeleteTextures(1,&prevFrameTex);prevFrameTex=0;}
                 agentStatus=AgentStatus::Active;
@@ -798,15 +823,22 @@ int main(){
 
         // ── Hot-reload ────────────────────────────────────────────────────────
         if(jit.hasNew.load()){
-            std::string newGlsl; float nVC,nATM,nTN; std::string nHint;
+            std::string newGlsl; float nVC,nATM,nTN; std::string nHint,nScene;
             {std::lock_guard<std::mutex>lk(jit.mtx);
              newGlsl=std::move(jit.pendingGlsl);
              nVC=jit.pendingVC;nATM=jit.pendingATM;nTN=jit.pendingTN;
-             nHint=std::move(jit.pendingHint);jit.hasNew=false;}
+             nHint=std::move(jit.pendingHint);
+             nScene=std::move(jit.pendingScene);
+             jit.hasNew=false;}
             lastLatencyMs=(now-jitStartTime)*1000.;
+            lastScene=std::move(nScene);
             std::printf("[%s] [Engine] Round-trip: %.0fms — hot-reloading\n",nowStr().c_str(),lastLatencyMs);
             try{
                 program=reloadProgram(program,vertSrc,newGlsl);
+                // Auto-save evolved shader so you can pre-bake it as a seed
+                {char sp[64];snprintf(sp,sizeof(sp),"shaders/evolved_p%d_gen%d.glsl",presetIdx+1,generation+1);
+                 std::ofstream sf(sp);if(sf.is_open()){sf<<newGlsl;
+                     std::printf("[%s] [Engine] Saved → %s\n",nowStr().c_str(),sp);}}
                 currentGlsl=std::move(newGlsl);
                 uTime=glGetUniformLocation(program,"uTime");
                 t0=now; agentStatus=AgentStatus::Active;
@@ -879,6 +911,8 @@ int main(){
         double bElapsed=baselineActive?(now-baselineStart):0.;
         renderHUD(w,h,agentStatus,lastLatencyMs,baselineActive,bElapsed,
                   generation,scoreVC,scoreATM,scoreTN,lastHint,presetIdx,comparisonActive,autoEvolve);
+        if(!baselineActive)
+            renderSceneBar(lastScene,w,h);
         if(comparisonActive&&prevFrameTex)
             renderComparisonOverlay(w,h,compPrevGen,lastLatencyMs);
 

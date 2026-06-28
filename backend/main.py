@@ -39,7 +39,10 @@ _COMPOSE_SCHEMA = {
 # ── Critic ────────────────────────────────────────────────────────────────────
 
 _CRITIQUE_SYSTEM = (
-    "You are a GPU shader art critic. Score the rendered frame on three axes (0.0–10.0):\n"
+    "You are a GPU shader art critic with multimodal vision. "
+    "First, in 'scene_description', write ONE vivid sentence naming the specific colors, shapes, "
+    "and motion you see in the rendered frame — be concrete, not generic. "
+    "Then score the rendered frame on three axes (0.0–10.0):\n"
     "- visual_complexity: richness of detail, layering, and motion variety\n"
     "- atmosphere: how effectively it conveys the intended aesthetic and emotional feel\n"
     "- technical_novelty: sophistication of GLSL techniques (domain warping, SDF, PBR, etc)\n"
@@ -57,12 +60,14 @@ _CRITIQUE_SCHEMA = {
         "schema": {
             "type": "object",
             "properties": {
+                "scene_description": {"type": "string"},
                 "visual_complexity": {"type": "number"},
                 "atmosphere":        {"type": "number"},
                 "technical_novelty": {"type": "number"},
                 "improvement_hint":  {"type": "string"},
             },
             "required": [
+                "scene_description",
                 "visual_complexity", "atmosphere",
                 "technical_novelty", "improvement_hint",
             ],
@@ -100,6 +105,7 @@ class CritiqueRequest(BaseModel):
 
 
 class CritiqueResponse(BaseModel):
+    scene_description: str
     visual_complexity: float
     atmosphere:        float
     technical_novelty: float
@@ -186,6 +192,7 @@ async def compile_shader(req: CompileRequest) -> CompileResponse:
             max_completion_tokens=32768,
             temperature=0.2,
             top_p=1,
+            extra_body={"reasoning_effort": "high"},
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
