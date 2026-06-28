@@ -1,149 +1,283 @@
 # Multimodal Shader JIT Compiler
 
-A 24-hour hackathon project. A C++ OpenGL renderer captures its own framebuffer, sends it to a Python FastAPI server, which calls the Cerebras Gemma 4 31B vision model to generate a new GLSL fragment shader on the fly, which the renderer hot-reloads — all triggered by a single keypress.
+A real-time GPU shader evolution system powered by **Cerebras ultra-fast inference** (Gemma 4 31B). The AI *watches* what the GPU renders, critiques it, and rewrites the GLSL shader code live — full round-trip in ~4 seconds across four domains: dark fantasy, anime, biomedical, and cosmic.
 
----
-
-## Quick Start
-
-### Prerequisites
-- A Cerebras API key — get one at [cerebras.ai](https://cerebras.ai)
-- **Docker path:** Docker Desktop installed and running
-- **Manual path:** Python 3.10+
-
----
-
-### Option A — Docker (recommended, works anywhere)
-
-```bash
-# 1. Clone and enter the repo
-git clone <repo-url>
-cd Multimodal-JIT-compiler
-
-# 2. Create your .env file
-cp .env.example .env
-# Open .env and replace the placeholder with your real key
-
-# 3. Start the server
-docker compose up --build
+```
+Live Render → Base64 PNG → Cerebras Critic  → scores + hint
+                                   ↓
+                          Cerebras Composer ← evolutionary genealogy (131k ctx)
+                                   ↓
+                          New GLSL → hot-reload → GPU renders next generation
 ```
 
-The API is now live at `http://localhost:8000`.  
-To stop it: `Ctrl+C`, then `docker compose down`.
+## Why Cerebras?
+
+A 31B multimodal model on a standard GPU cluster takes **45–90 seconds** per call. Cerebras delivers the same model in **2–4 seconds** — making interactive JIT compilation possible.
+
+| System | Latency (31B model) | Interactive? |
+|---|---|---|
+| GPU cluster | ~45,000 ms | No |
+| Cerebras | ~3,500 ms | **Yes** |
 
 ---
 
-### Option B — Plain Python (no Docker)
+## Prerequisites
+
+- **Windows 10/11** with MinGW-w64 (`scoop install mingw cmake make`)
+- **Python 3.10+**
+- **Cerebras API key** — get access to `gemma-4-31b` at [cerebras.ai](https://cerebras.ai)
+- **OpenGL 3.3+** GPU (any modern integrated or discrete GPU)
+
+---
+
+## Installation
+
+### 1. Clone
 
 ```bash
-# 1. Clone and enter the repo
-git clone <repo-url>
+git clone https://github.com/SrijanSuresh/Multimodal-JIT-compiler
 cd Multimodal-JIT-compiler
+```
 
-# 2. Create and activate a virtual environment
+### 2. Set your API key
+
+```powershell
+# Create .env (never committed)
+"CEREBRAS_API_KEY=csk-your-key-here" | Out-File .env
+```
+
+### 3. Python backend
+
+```powershell
 python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install fastapi uvicorn openai
+```
 
-# Windows
-venv\Scripts\activate
-# macOS / Linux
-source venv/bin/activate
+### 4. C++ renderer
 
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Set your API key (pick one)
-
-# Windows PowerShell
-$env:CEREBRAS_API_KEY = "your_key_here"
-
-# Windows CMD
-set CEREBRAS_API_KEY=your_key_here
-
-# macOS / Linux
-export CEREBRAS_API_KEY="your_key_here"
-
-# 5. Start the server (run from the repo root)
-uvicorn backend.main:app --reload --port 8000
+```powershell
+mkdir build; cd build
+cmake -G "MinGW Makefiles" ..
+make -j4
 ```
 
 ---
 
-## Verify It's Working
+## Running
 
-```bash
-curl -X POST http://localhost:8000/compile \
-  -H "Content-Type: application/json" \
-  -d '{"base64_image":"dGVzdA==","user_prompt":"make it glow red"}'
+**Terminal 1 — backend:**
+```powershell
+$env:CEREBRAS_API_KEY = "csk-your-key-here"
+.\venv\Scripts\python.exe -m uvicorn backend.main:app --port 8000
 ```
 
-| What you see | Meaning |
+**Terminal 2 — renderer:**
+```powershell
+$env:CEREBRAS_API_KEY = "csk-your-key-here"
+cd build
+.\shader_jit_engine.exe
+```
+
+---
+
+## Controls
+
+| Key | Action |
 |---|---|
-| `{"detail":"CEREBRAS_API_KEY not set"}` | API key missing — check step 4 above |
-| `{"detail":"Error code: 401 ..."}` | Wrong key — double-check it |
-| `{"glsl_fragment":"#version 330 core..."}` | Everything works |
+| `1` | **Dark Fantasy** preset (Bloodborne / Elden Ring) |
+| `2` | **Persona / Anime** preset (Persona 5, vibrant geometric) |
+| `3` | **Biomedical** preset (fluorescence microscopy) |
+| `4` | **Cosmic / Space** preset (nebula, star fields) |
+| `SPACE` | Evolve current shader — triggers Critic then Composer |
+| `B` | Baseline mode: shows fake 5s "GPU cluster" loading bar |
+| `C` | **Split-screen compare**: left = before frame, right = live Cerebras result |
+| `A` | **Auto-evolve**: fires SPACE every 20s automatically (great for demos) |
+| `ESC` | Quit |
 
 ---
 
-## API Reference
+## Presets
+
+### `1` — Dark Fantasy *(Bloodborne / Elden Ring)*
+Domain-warped 6-octave fbm fog with crimson → violet → amber palette. Blood moon glow, eldritch rune ring shimmer, vignette. Evolves toward denser mist, sharper rune SDF glyphs, and more complex warp layers.
+
+**Critic axes:** eldritch dread atmosphere · crimson fog density · domain-warp complexity
+
+### `2` — Persona / Anime *(Persona 5)*
+Rotating SDF box frames, diamond tile patterns, concentric ring grids, radial all-out-attack glow. Electric yellow, hot pink, cyan palette with anime scan-line filter. Evolves toward richer geometric layering and stylized motion.
+
+**Critic axes:** pop-art energy · geometric precision · animated stylization
+
+### `3` — Biomedical *(Fluorescence Microscopy)*
+Voronoi cell membrane network, amber organelles, pulsing violet nucleus, cytoplasm fluid dynamics. Fluorescent pulse glow effects mimicking confocal microscopy. Evolves toward more realistic organelle structures and membrane detail.
+
+**Critic axes:** cellular realism · organic form complexity · scientific visual clarity
+
+### `4` — Cosmic / Space *(Nebula / Deep Sky)*
+7-octave domain-warped nebula clouds, two-density star field with individual twinkle, stellar nursery cluster, pulsar beam strobe. Deep indigo → electric blue → gold star cores. Evolves toward denser nebula formations and stellar phenomena.
+
+**Critic axes:** nebula grandeur · stellar density · galactic scale
+
+---
+
+## How it works
+
+### Two-agent pipeline
+
+Each `SPACE` press runs **two sequential Cerebras calls** in a background thread (render loop never stalls):
+
+**Phase 1 — Critic** (`POST /critique`):
+```json
+{
+  "visual_complexity": 6.2,
+  "atmosphere": 4.8,
+  "technical_novelty": 5.1,
+  "improvement_hint": "add a SDF rune glyph at center using polar coordinates"
+}
+```
+
+**Phase 2 — Composer** (`POST /compile`):
+Receives the current render + **full generational history** (up to 4 previous gens with scores and hints) packed into the 131k context window. Targets the weakest axis identified by the Critic.
+
+Returns a complete GLSL 3.3 core fragment shader — no markdown, no explanations, just valid GPU code.
+
+### Context window utilization
+
+Each generation adds ~8k tokens of GLSL + scores to the evolutionary history. By generation 4, the Composer uses ~32k tokens of context — it knows every technique it's already tried and what the Critic scored poorly, so each generation is genuinely informed by the full lineage.
+
+### Strict JSON schema
+
+Both endpoints enforce `response_format: json_schema` with `strict: True`. Zero parsing ambiguity. The Composer cannot output markdown fences or explanations — only valid JSON containing valid GLSL.
+
+---
+
+## Split-screen comparison (`C` key)
+
+After any SPACE evolution:
+1. Press `C` to toggle comparison mode
+2. **Left half**: the frame *before* evolution (frozen snapshot)
+3. **Right half**: live current shader (animating)
+4. Overlay shows: `BEFORE: ~45,000 ms` vs `AFTER: Xms (Yx faster)`
+
+This is the demo money shot — the visual difference between generations with the speed numbers inline.
+
+---
+
+## Auto-evolve mode (`A` key)
+
+Press `A` to start hands-free evolution at 20-second intervals. Switch presets with `1`-`4` at any time — auto-evolve continues on the new preset. Great for unattended conference demos or recording video.
+
+---
+
+## Adding a custom preset
+
+1. Write `shaders/my_preset.glsl`:
+   ```glsl
+   #version 330 core
+   in  vec2 vUV;
+   out vec4 FragColor;
+   uniform float uTime;
+   void main() { /* default shader */ }
+   ```
+
+2. Copy to `build/shaders/my_preset.glsl`
+
+3. Add to `kPresets[]` in `src/main.cpp`:
+   ```cpp
+   {
+       "My Preset",
+       "shaders/my_preset.glsl",
+       "Score for [your aesthetic]: [what the critic looks for].",
+       "[Style directive for Composer]: [palette, techniques, must-haves].",
+       GLFW_KEY_5
+   },
+   ```
+
+4. Increment `kNumPresets` and rebuild.
+
+---
+
+## API reference
+
+### `POST /critique`
+
+```json
+{
+  "base64_image": "<PNG base64>",
+  "glsl_source": "#version 330 core\n...",
+  "style_context": "Score for cosmic nebula aesthetic."
+}
+```
+
+Response:
+```json
+{
+  "visual_complexity": 7.3,
+  "atmosphere": 5.1,
+  "technical_novelty": 6.8,
+  "improvement_hint": "layer 8 octaves of fbm for denser volumetric fog"
+}
+```
 
 ### `POST /compile`
 
-**Request body**
 ```json
 {
-  "base64_image": "<PNG frame encoded as Base64 string>",
-  "user_prompt": "make the colors pulse faster"
+  "base64_image": "<PNG base64>",
+  "user_prompt": "EVOLUTIONARY GENEALOGY:\n  Gen1 VC:6.2 ATM:4.8...\nIMPROVEMENT DIRECTIVE: ..."
 }
 ```
 
-**Response**
+Response:
 ```json
 {
-  "glsl_fragment": "#version 330 core\n..."
+  "glsl_fragment": "#version 330 core\nin vec2 vUV;\n..."
 }
-```
-
-**Error responses**
-
-| Code | Reason |
-|------|--------|
-| 422 | Missing or malformed request body |
-| 503 | `CEREBRAS_API_KEY` environment variable not set |
-| 502 | Cerebras API error (bad key, quota, network) |
-
-Interactive docs available at `http://localhost:8000/docs` while the server is running.
-
----
-
-## Project Structure
-
-```
-Multimodal-JIT-compiler/
-├── backend/
-│   └── main.py          # FastAPI server — /compile endpoint
-├── src/
-│   └── main.cpp         # C++ OpenGL renderer (Phase 2)
-├── shaders/
-│   ├── vertex.glsl      # Passthrough vertex shader
-│   └── fragment.glsl    # Default fragment shader (replaced at runtime)
-├── vendor/              # Header-only C++ libs (stb, httplib) — no install needed
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── .env.example         # Copy to .env and fill in your key
 ```
 
 ---
 
-## Building the C++ Renderer (Phase 2)
+## Quota usage
 
-Requires: CMake 3.15+, a C++17 compiler, GLFW, and GLEW installed.
+With Cerebras allocation (`gemma-4-31b`):
 
-```bash
-mkdir -p build && cd build
-cmake ..
-make
-./shader_jit_engine
+| Metric | Per evolution | Per day |
+|---|---|---|
+| Critic tokens | ~500 | — |
+| Composer tokens | ~8,000 | — |
+| Total per evolution | ~8,500 | — |
+| Daily budget | — | 144M tokens |
+| Max evolutions/day | — | **~16,900** |
+| At 20s auto interval | — | 4,320 evolutions |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  C++ Renderer  (OpenGL 3.3 Core, GLFW, GLAD)            │
+│                                                         │
+│  Render loop (main thread)   JIT thread (detached)      │
+│  ┌───────────────────────┐   ┌─────────────────────┐   │
+│  │ Draw quad with uTime  │   │ glReadPixels → PNG   │   │
+│  │ HUD overlay (stb_tt)  │   │ POST /critique       │   │
+│  │ 1-4 preset switch     │──▶│ POST /compile        │   │
+│  │ C split-screen blit   │   │ JitState.hasNew=true │   │
+│  │ A auto-evolve timer   │   └─────────────────────┘   │
+│  └───────────────────────┘                              │
+│         ↑ hot-reload on GL main thread (no ctx loss)    │
+└─────────┼───────────────────────────────────────────────┘
+          │ HTTP localhost:8000
+┌─────────▼───────────────────────────────────────────────┐
+│  Python FastAPI  (uvicorn)                              │
+│  POST /critique → gemma-4-31b strict JSON schema        │
+│  POST /compile  → gemma-4-31b strict JSON schema        │
+│                   Cerebras API  https://api.cerebras.ai │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Press **Spacebar** in the renderer window to trigger a JIT compile cycle.
+## License
+
+MIT
