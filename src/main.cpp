@@ -225,7 +225,9 @@ static stbtt_bakedchar g_cdata[96];
 static GLuint g_fontTex=0; static float g_fontAscent=0.f; static bool g_fontOk=false;
 static GLuint g_textProg=0,g_textVAO=0,g_textVBO=0;
 static GLuint g_rectProg=0,g_rectVAO=0,g_rectVBO=0;
-static GLuint g_blitProg=0;  // fullscreen texture blit for comparison mode
+static GLuint g_blitProg=0;
+static GLuint g_grayProg=0;  // desaturation blit — used during baseline mode
+static GLuint g_fbo=0,g_fboTex=0; static int g_fboW=0,g_fboH=0;
 
 static const char* kHudTextVS = R"GLSL(
 #version 330 core
@@ -257,6 +259,16 @@ static const char* kBlitFS = R"GLSL(
 in vec2 vUV; out vec4 FragColor; uniform sampler2D uTex;
 void main(){FragColor=texture(uTex,vUV);}
 )GLSL";
+// Desaturation + darken — makes the "waiting" state look visually dead
+static const char* kGrayFS = R"GLSL(
+#version 330 core
+in vec2 vUV; out vec4 FragColor; uniform sampler2D uTex;
+void main(){
+    vec3 c=texture(uTex,vUV).rgb;
+    float lum=dot(c,vec3(0.299,0.587,0.114));
+    FragColor=vec4(vec3(lum)*0.45,1.0);
+}
+)GLSL";
 
 static GLuint buildInlineProg(const char* vs, const char* fs) {
     auto cmp=[](GLenum t,const char*src){GLuint s=glCreateShader(t);glShaderSource(s,1,&src,nullptr);glCompileShader(s);return s;};
@@ -277,6 +289,21 @@ static void buildHudShaders() {
     glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(float),nullptr);glEnableVertexAttribArray(0);glBindVertexArray(0);
 
     g_blitProg=buildInlineProg(kBlitVS,kBlitFS);
+    g_grayProg=buildInlineProg(kBlitVS,kGrayFS);
+}
+
+static void ensureFBO(int w,int h){
+    if(g_fbo&&g_fboW==w&&g_fboH==h) return;
+    if(g_fbo){glDeleteFramebuffers(1,&g_fbo);glDeleteTextures(1,&g_fboTex);}
+    glGenFramebuffers(1,&g_fbo); glGenTextures(1,&g_fboTex);
+    glBindTexture(GL_TEXTURE_2D,g_fboTex);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,nullptr);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glBindFramebuffer(GL_FRAMEBUFFER,g_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,g_fboTex,0);
+    glBindFramebuffer(GL_FRAMEBUFFER,0);
+    g_fboW=w; g_fboH=h;
 }
 
 static bool initFont() {
@@ -354,34 +381,63 @@ static void renderHUD(int winW,int winH,
                        const std::string& lastHint,
                        int presetIdx,bool comparisonActive,bool autoEvolve) {
     const float W=float(winW),H=float(winH);
-    const float pad=12.f,lh=20.f,panW=295.f;
-
-    bool hasScores=(generation>0);
-    int nRows=baselineActive?5:(hasScores?12:6);
-    const float panH=pad+lh*nRows+(hasScores?6.f:0.f)+pad;
-    const float panX=W-panW-12.f,panY=12.f;
+    const float pad=12.f,lh=20.f;
 
     glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDisable(GL_DEPTH_TEST);
 
-    drawRect(panX-1.f,panY-1.f,panW+2.f,panH+2.f,0.3f,0.55f,1.f,0.18f,W,H);
-    drawRect(panX,panY,panW,panH,0.04f,0.04f,0.09f,0.88f,W,H);
-
-    if(g_fontOk){
-        float tx=panX+pad,ty=panY+pad;
+    if(baselineActive){
+        // ── Big centered "dead screen" panel ──────────────────────────────────
+        const float cpW=460.f,cpH=200.f;
+        const float cpX=(W-cpW)*0.5f,cpY=(H-cpH)*0.5f;
         char buf[256];
 
-        if(baselineActive){
-            drawText("TRADITIONAL INFERENCE",tx,ty,1.f,0.55f,0.f,W,H);ty+=lh;
-            drawText("Simulating GPU cluster latency...",tx,ty,0.65f,0.65f,0.65f,W,H);ty+=lh;
-            snprintf(buf,sizeof(buf),"Loading...  %.1f s / 5.0 s",baselineElapsed);
-            drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
-            int filled=(int)(baselineElapsed/5.0*22);
-            std::string bar="[";
-            for(int i=0;i<22;++i) bar+=(i<filled)?'#':'-';
-            bar+="]";
-            drawText(bar.c_str(),tx,ty,1.f,0.45f,0.f,W,H);ty+=lh;
-            drawText("[B] exit  |  Cerebras JIT: ~4s",tx,ty,0.42f,0.42f,0.42f,W,H);
+        // Red-tinted border (danger signal)
+        drawRect(cpX-3.f,cpY-3.f,cpW+6.f,cpH+6.f,0.75f,0.08f,0.08f,0.85f,W,H);
+        drawRect(cpX,cpY,cpW,cpH,0.06f,0.02f,0.02f,0.97f,W,H);
+
+        float tx=cpX+20.f,ty=cpY+16.f;
+
+        drawText("TRADITIONAL GPU CLUSTER",tx,ty,1.f,0.25f,0.1f,W,H);ty+=lh*1.3f;
+        drawText("No real-time feedback loop possible at this latency",
+                 tx,ty,0.65f,0.55f,0.55f,W,H);ty+=lh*1.15f;
+
+        // Progress bar scaled to imply 45s (fills in 5s for demo)
+        float barW=cpW-40.f;
+        float prog=float(baselineElapsed/5.0);
+        drawRect(cpX+20.f,ty+2.f,barW,18.f,0.18f,0.05f,0.05f,1.f,W,H);
+        if(prog>0.f) drawRect(cpX+20.f,ty+2.f,barW*prog,18.f,0.82f,0.08f,0.08f,1.f,W,H);
+        ty+=lh*1.6f;
+
+        snprintf(buf,sizeof(buf),"Waiting...  %.0f s / ~45 s  (demo compressed 9x)",
+                 baselineElapsed*9.0f);
+        drawText(buf,tx,ty,0.9f,0.85f,0.85f,W,H);ty+=lh*1.1f;
+
+        if(latencyMs>0.){
+            snprintf(buf,sizeof(buf),"Cerebras finished this in %.0f ms — %.0fx faster",
+                     latencyMs,45000./latencyMs);
+            drawText(buf,tx,ty,0.45f,0.45f,0.45f,W,H);
         } else {
+            drawText("[B] skip  |  Cerebras solved this in ~4s already",
+                     tx,ty,0.45f,0.45f,0.45f,W,H);
+        }
+
+        // Small corner reminder
+        drawText("Press [B] to exit baseline",W-200.f,H-28.f,0.38f,0.38f,0.38f,W,H);
+
+    } else {
+        // ── Corner info panel (normal mode) ───────────────────────────────────
+        const float panW=295.f;
+        bool hasScores=(generation>0);
+        int nRows=hasScores?12:6;
+        const float panH=pad+lh*nRows+(hasScores?6.f:0.f)+pad;
+        const float panX=W-panW-12.f,panY=12.f;
+
+        drawRect(panX-1.f,panY-1.f,panW+2.f,panH+2.f,0.3f,0.55f,1.f,0.18f,W,H);
+        drawRect(panX,panY,panW,panH,0.04f,0.04f,0.09f,0.88f,W,H);
+
+        if(g_fontOk){
+            float tx=panX+pad,ty=panY+pad;
+            char buf[256];
             // Title row
             if(generation>0) snprintf(buf,sizeof(buf),"GEMMA 4-31B  [Gen %d]",generation);
             else              snprintf(buf,sizeof(buf),"GEMMA 4-31B");
@@ -424,8 +480,8 @@ static void renderHUD(int winW,int winH,
                 }
             }
             drawText("[1-4]preset [SPC]evolve [B]base [C]cmp [A]auto",tx,ty,0.38f,0.38f,0.38f,W,H);
-        }
-    }
+        } // if g_fontOk
+    } // else (normal mode)
     glEnable(GL_DEPTH_TEST);glDisable(GL_BLEND);
 }
 
@@ -780,24 +836,37 @@ int main(){
         glViewport(0,0,w,h);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-        if(comparisonActive&&prevFrameTex){
-            // Left half: previous frame (stored texture)
+        if(baselineActive){
+            // Render scene (uTime frozen) into FBO, blit to screen desaturated+dark
+            ensureFBO(w,h);
+            glBindFramebuffer(GL_FRAMEBUFFER,g_fbo);
+            glViewport(0,0,w,h);
+            glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+            glUseProgram(program); // uTime not updated — shader frozen
+            glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,0,6);
+            glBindFramebuffer(GL_FRAMEBUFFER,0);
+            // Blit desaturated + darkened
+            glViewport(0,0,w,h);
+            glUseProgram(g_grayProg);
+            glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,g_fboTex);
+            glUniform1i(glGetUniformLocation(g_grayProg,"uTex"),0);
+            glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,0,6);
+        } else if(comparisonActive&&prevFrameTex){
+            // Left half: previous frame
             glViewport(0,0,w/2,h);
             glUseProgram(g_blitProg);
             glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,prevFrameTex);
             glUniform1i(glGetUniformLocation(g_blitProg,"uTex"),0);
             glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,0,6);
-
             // Right half: live shader
             glViewport(w/2,0,w-w/2,h);
             glUseProgram(program);
-            if(!baselineActive&&uTime>=0) glUniform1f(uTime,float(now-t0));
+            if(uTime>=0) glUniform1f(uTime,float(now-t0));
             glDrawArrays(GL_TRIANGLES,0,6);
-
             glViewport(0,0,w,h);
         } else {
             glUseProgram(program);
-            if(!baselineActive&&uTime>=0) glUniform1f(uTime,float(now-t0));
+            if(uTime>=0) glUniform1f(uTime,float(now-t0));
             glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,0,6);
         }
 
@@ -817,7 +886,9 @@ int main(){
     }
 
     glDeleteProgram(program);
-    glDeleteProgram(g_textProg);glDeleteProgram(g_rectProg);glDeleteProgram(g_blitProg);
+    glDeleteProgram(g_textProg);glDeleteProgram(g_rectProg);
+    glDeleteProgram(g_blitProg);glDeleteProgram(g_grayProg);
+    if(g_fbo){glDeleteFramebuffers(1,&g_fbo);glDeleteTextures(1,&g_fboTex);}
     glDeleteBuffers(1,&vbo);glDeleteBuffers(1,&g_textVBO);glDeleteBuffers(1,&g_rectVBO);
     glDeleteVertexArrays(1,&vao);glDeleteVertexArrays(1,&g_textVAO);glDeleteVertexArrays(1,&g_rectVAO);
     if(g_fontTex) glDeleteTextures(1,&g_fontTex);
