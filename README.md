@@ -1,19 +1,34 @@
-# Neural Shader JIT Compiler
+# Multimodal Shader JIT Compiler
 
 A real-time GPU shader evolution system powered by **Cerebras ultra-fast inference** (Gemma 4 31B). The AI *watches* what the GPU renders, critiques it, and rewrites the GLSL shader code live — full round-trip in 2–6 seconds across four domains: dark fantasy, anime, biomedical, and cosmic.
 
+---
+
+## Demo
+
+<div align="center">
+
+<a href="https://youtu.be/JLALhCwffZE">
+  <img src="https://img.youtube.com/vi/JLALhCwffZE/maxresdefault.jpg" width="800" alt="Watch the full demo"/>
+</a>
+
+*▶ Click to watch the full demo on YouTube*
+
+</div>
+
+---
 
 ## Preset Gallery
 
 <div align="center">
 <table>
 <tr>
-<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/darkfantasy.gif" width="420"/></td>
-<td align="center"><b>Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/anime.gif" width="420"/></td>
+<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/darkfantasy.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/anime.mp4" autoplay loop muted playsinline width="420"></video></td>
 </tr>
 <tr>
-<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/biomed.gif" width="420"/></td>
-<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/planet.gif" width="420"/></td>
+<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/biomed.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/planet.mp4" autoplay loop muted playsinline width="420"></video></td>
 </tr>
 </table>
 </div>
@@ -139,8 +154,8 @@ The renderer never crashes on bad model output. The seed shader always runs as a
 ### 1. Clone
 
 ```bash
-git clone https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler
-cd Neural-Shader-JIT-Compiler
+git clone https://github.com/SrijanSuresh/Multimodal-JIT-compiler
+cd Multimodal-JIT-compiler
 ```
 
 ### 2. Set your API key
@@ -190,7 +205,7 @@ cd build
 | Key | Action |
 |---|---|
 | `1` | **Dark Fantasy** preset (Bloodborne / Elden Ring) |
-| `2` | **Anime** preset (vibrant geometric) |
+| `2` | **Persona / Anime** preset (Persona 5, vibrant geometric) |
 | `3` | **Biomedical** preset (fluorescence microscopy) |
 | `4` | **Cosmic / Space** preset (nebula, star fields) |
 | `SPACE` | Evolve current shader — triggers Critic then Composer |
