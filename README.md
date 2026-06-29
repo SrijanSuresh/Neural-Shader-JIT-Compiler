@@ -2,17 +2,6 @@
 
 A real-time GPU shader evolution system powered by **Cerebras ultra-fast inference** (Gemma 4 31B). The AI *watches* what the GPU renders, critiques it, and rewrites the GLSL shader code live — full round-trip in 2–6 seconds across four domains: dark fantasy, anime, biomedical, and cosmic.
 
----
-
-## Demo
-
-<div align="center">
-
-<video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/demo.mp4" controls width="800"></video>
-
-</div>
-
----
 
 ## Preset Gallery
 
@@ -20,7 +9,7 @@ A real-time GPU shader evolution system powered by **Cerebras ultra-fast inferen
 <table>
 <tr>
 <td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/darkfantasy.gif" width="420"/></td>
-<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/anime.gif" width="420"/></td>
+<td align="center"><b>Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/anime.gif" width="420"/></td>
 </tr>
 <tr>
 <td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/biomed.gif" width="420"/></td>
@@ -201,7 +190,7 @@ cd build
 | Key | Action |
 |---|---|
 | `1` | **Dark Fantasy** preset (Bloodborne / Elden Ring) |
-| `2` | **Persona / Anime** preset (Persona 5, vibrant geometric) |
+| `2` | **Anime** preset (vibrant geometric) |
 | `3` | **Biomedical** preset (fluorescence microscopy) |
 | `4` | **Cosmic / Space** preset (nebula, star fields) |
 | `SPACE` | Evolve current shader — triggers Critic then Composer |
