@@ -167,6 +167,7 @@ class CompileRequest(BaseModel):
 
 class CompileResponse(BaseModel):
     glsl_fragment: str
+    completion_tokens: int = 0
 
 
 @app.post("/compile", response_model=CompileResponse)
@@ -202,6 +203,7 @@ async def compile_shader(req: CompileRequest) -> CompileResponse:
         raise HTTPException(status_code=502, detail="Empty response from model")
     try:
         data = json.loads(content)
-        return CompileResponse(glsl_fragment=data["glsl_fragment"])
+        tokens = getattr(response.usage, "completion_tokens", 0) if response.usage else 0
+        return CompileResponse(glsl_fragment=data["glsl_fragment"], completion_tokens=tokens)
     except (json.JSONDecodeError, KeyError) as exc:
         raise HTTPException(status_code=502, detail=f"Bad model output: {content}") from exc
