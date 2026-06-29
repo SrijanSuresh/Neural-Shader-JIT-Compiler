@@ -8,10 +8,7 @@ A real-time GPU shader evolution system powered by **Cerebras ultra-fast inferen
 
 <div align="center">
 
-<!-- Replace the URL below with your actual video link -->
-[![Demo Video](https://img.shields.io/badge/▶%20Watch%20Full%20Demo-53s-red?style=for-the-badge&logo=youtube&logoColor=white)](#)
-
-*Click the badge above once the video is uploaded — replace `#` with the URL.*
+<video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/demo.mp4" controls width="800"></video>
 
 </div>
 
@@ -22,12 +19,12 @@ A real-time GPU shader evolution system powered by **Cerebras ultra-fast inferen
 <div align="center">
 <table>
 <tr>
-<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><img src="media/darkfantasy.gif" width="420"/></td>
-<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="media/anime.gif" width="420"/></td>
+<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/darkfantasy.gif" width="420"/></td>
+<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/anime.gif" width="420"/></td>
 </tr>
 <tr>
-<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><img src="media/biomed.gif" width="420"/></td>
-<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><img src="media/planet.gif" width="420"/></td>
+<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/biomed.gif" width="420"/></td>
+<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/planet.gif" width="420"/></td>
 </tr>
 </table>
 </div>
