@@ -36,6 +36,7 @@ A real-time GPU shader evolution system powered by **Cerebras ultra-fast inferen
 ---
 
 ## Pipeline
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/2d041ac0-7764-438a-b390-c55e3b71d7a2" />
 
 ```
 Live Render → Base64 PNG → Cerebras Critic  → scores + scene_description
