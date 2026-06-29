@@ -3,6 +3,6 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY}
+    env_file:
+      - .env
     restart: unless-stopped
