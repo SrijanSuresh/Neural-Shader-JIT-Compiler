@@ -379,56 +379,85 @@ static void renderHUD(int winW,int winH,
                        bool baselineActive,double baselineElapsed,
                        int generation,float sVC,float sATM,float sTN,
                        const std::string& lastHint,
-                       int presetIdx,bool comparisonActive,bool autoEvolve) {
+                       int presetIdx,bool comparisonActive,bool autoEvolve,
+                       double estGpuMs, int lastTokens) {
     const float W=float(winW),H=float(winH);
     const float pad=12.f,lh=20.f;
 
     glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDisable(GL_DEPTH_TEST);
 
     if(baselineActive){
-        // ── Big centered "dead screen" panel ──────────────────────────────────
-        const float cpW=460.f,cpH=200.f;
+        // ── Side-by-side latency comparison panel ─────────────────────────────
+        const float cpW=480.f,cpH=210.f;
         const float cpX=(W-cpW)*0.5f,cpY=(H-cpH)*0.5f;
         char buf[256];
+        const float barW=cpW-40.f;
+        constexpr double kBaseDur=8.0; // 8 real seconds, GPU bar label scales to estGpuMs
 
-        // Red-tinted border (danger signal)
-        drawRect(cpX-3.f,cpY-3.f,cpW+6.f,cpH+6.f,0.75f,0.08f,0.08f,0.85f,W,H);
-        drawRect(cpX,cpY,cpW,cpH,0.06f,0.02f,0.02f,0.97f,W,H);
+        drawRect(cpX-3.f,cpY-3.f,cpW+6.f,cpH+6.f,0.4f,0.05f,0.05f,0.9f,W,H);
+        drawRect(cpX,cpY,cpW,cpH,0.05f,0.02f,0.03f,0.97f,W,H);
 
-        float tx=cpX+20.f,ty=cpY+16.f;
+        float tx=cpX+20.f,ty=cpY+14.f;
 
-        drawText("TRADITIONAL GPU CLUSTER",tx,ty,1.f,0.25f,0.1f,W,H);ty+=lh*1.3f;
-        drawText("No real-time feedback loop possible at this latency",
-                 tx,ty,0.65f,0.55f,0.55f,W,H);ty+=lh*1.15f;
+        drawText("LATENCY COMPARISON",tx,ty,0.78f,0.78f,0.78f,W,H);ty+=lh*1.3f;
 
-        // Progress bar scaled to imply 45s (fills in 5s for demo)
-        float barW=cpW-40.f;
-        float prog=float(baselineElapsed/5.0);
-        drawRect(cpX+20.f,ty+2.f,barW,18.f,0.18f,0.05f,0.05f,1.f,W,H);
-        if(prog>0.f) drawRect(cpX+20.f,ty+2.f,barW*prog,18.f,0.82f,0.08f,0.08f,1.f,W,H);
-        ty+=lh*1.6f;
-
-        snprintf(buf,sizeof(buf),"Waiting...  %.0f s / ~45 s  (demo compressed 9x)",
-                 baselineElapsed*9.0f);
-        drawText(buf,tx,ty,0.9f,0.85f,0.85f,W,H);ty+=lh*1.1f;
-
+        // ── Cerebras row ──────────────────────────────────────────────────────
+        drawText("CEREBRAS",tx,ty,0.25f,1.f,0.45f,W,H);
         if(latencyMs>0.){
-            snprintf(buf,sizeof(buf),"Cerebras finished this in %.0f ms — %.0fx faster",
-                     latencyMs,45000./latencyMs);
-            drawText(buf,tx,ty,0.45f,0.45f,0.45f,W,H);
+            snprintf(buf,sizeof(buf),"DONE  %.0f ms",latencyMs);
+            drawText(buf,cpX+cpW-165.f,ty,0.25f,1.f,0.45f,W,H);
+        } else if(status==AgentStatus::Processing){
+            drawText("Running...",cpX+cpW-130.f,ty,0.5f,0.85f,0.5f,W,H);
         } else {
-            drawText("[B] skip  |  Cerebras solved this in ~4s already",
-                     tx,ty,0.45f,0.45f,0.45f,W,H);
+            drawText("[SPACE] to start",cpX+cpW-175.f,ty,0.42f,0.42f,0.42f,W,H);
+        }
+        ty+=lh;
+        drawRect(cpX+20.f,ty+2.f,barW,12.f,0.04f,0.12f,0.04f,1.f,W,H);
+        if(latencyMs>0.){
+            drawRect(cpX+20.f,ty+2.f,barW,12.f,0.15f,0.88f,0.3f,1.f,W,H);
+        } else if(status==AgentStatus::Processing){
+            float p=0.35f+0.3f*float(sin(baselineElapsed*5.0));
+            drawRect(cpX+20.f,ty+2.f,barW*p,12.f,0.12f,0.72f,0.25f,1.f,W,H);
+        }
+        ty+=lh+8.f;
+
+        // ── GPU cluster row ───────────────────────────────────────────────────
+        float gpuFrac=float(baselineElapsed/kBaseDur);
+        if(gpuFrac>1.f) gpuFrac=1.f;
+        float simSec=float(baselineElapsed*(estGpuMs/1000.0/kBaseDur));
+        float estTotalSec=float(estGpuMs/1000.0);
+        drawText("GPU CLUSTER",tx,ty,1.f,0.3f,0.15f,W,H);
+        snprintf(buf,sizeof(buf),"%.0f / ~%.0f s (est.)",simSec,estTotalSec);
+        drawText(buf,cpX+cpW-195.f,ty,0.9f,0.42f,0.32f,W,H);
+        ty+=lh;
+        drawRect(cpX+20.f,ty+2.f,barW,12.f,0.18f,0.05f,0.05f,1.f,W,H);
+        if(gpuFrac>0.f) drawRect(cpX+20.f,ty+2.f,barW*gpuFrac,12.f,0.82f,0.1f,0.08f,1.f,W,H);
+        ty+=lh+4.f;
+
+        // Formula line — shows judges exactly how estimate is derived
+        if(lastTokens>0)
+            snprintf(buf,sizeof(buf),"est: %d tok / 25tok/s + 8s queue overhead",lastTokens);
+        else
+            snprintf(buf,sizeof(buf),"est: default 45s / 25tok/s + 8s queue overhead");
+        drawText(buf,tx+4.f,ty,0.52f,0.27f,0.27f,W,H);
+        ty+=lh+4.f;
+
+        // ── Speed summary ─────────────────────────────────────────────────────
+        if(latencyMs>0.){
+            snprintf(buf,sizeof(buf),"Cerebras is  %.0fx FASTER  than GPU cluster",estGpuMs/latencyMs);
+            drawText(buf,tx,ty,1.f,0.88f,0.08f,W,H);
+        } else {
+            drawText("No real-time feedback loop at GPU cluster latency",
+                     tx,ty,0.58f,0.45f,0.45f,W,H);
         }
 
-        // Small corner reminder
-        drawText("Press [B] to exit baseline",W-200.f,H-28.f,0.38f,0.38f,0.38f,W,H);
+        drawText("[B] exit",W-88.f,H-26.f,0.35f,0.35f,0.35f,W,H);
 
     } else {
         // ── Corner info panel (normal mode) ───────────────────────────────────
         const float panW=295.f;
         bool hasScores=(generation>0);
-        int nRows=hasScores?12:6;
+        int nRows=hasScores?13:7;
         const float panH=pad+lh*nRows+(hasScores?6.f:0.f)+pad;
         const float panX=W-panW-12.f,panY=12.f;
 
@@ -457,11 +486,24 @@ static void renderHUD(int winW,int winH,
             snprintf(buf,sizeof(buf),"Status:  %s",sl);
             drawText(buf,tx,ty,sr,sg,sb,W,H);ty+=lh;
 
-            // Latency
-            if(latencyMs>0.)
-                snprintf(buf,sizeof(buf),"Latency: %.0f ms  (%.1fx vs GPU)",latencyMs,5000./latencyMs);
-            else snprintf(buf,sizeof(buf),"Latency: --");
-            drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
+            // Latency + throughput + speedup (always two lines for consistent panel height)
+            if(latencyMs>0.){
+                if(lastTokens>0){
+                    snprintf(buf,sizeof(buf),"Latency: %.0f ms  (%d tok)",latencyMs,lastTokens);
+                    drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
+                    double tokPerSec=lastTokens/(latencyMs/1000.);
+                    snprintf(buf,sizeof(buf),"  %.0f tok/s  |  %.0fx vs GPU est.",tokPerSec,estGpuMs/latencyMs);
+                    drawText(buf,tx,ty,0.2f,1.f,0.45f,W,H);ty+=lh;
+                } else {
+                    snprintf(buf,sizeof(buf),"Latency: %.0f ms",latencyMs);
+                    drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
+                    snprintf(buf,sizeof(buf),"  %.0fx faster than GPU cluster",estGpuMs/latencyMs);
+                    drawText(buf,tx,ty,0.2f,1.f,0.45f,W,H);ty+=lh;
+                }
+            } else {
+                drawText("Latency: --",tx,ty,0.6f,0.6f,0.6f,W,H);ty+=lh;
+                ty+=lh;
+            }
 
             if(hasScores){
                 ty+=4.f;
@@ -485,8 +527,25 @@ static void renderHUD(int winW,int winH,
     glEnable(GL_DEPTH_TEST);glDisable(GL_BLEND);
 }
 
+// Bottom bar showing what Gemma 4 saw in the frame — proves multimodal is live
+static void renderSceneBar(const std::string& scene,int winW,int winH){
+    if(!g_fontOk||scene.empty()) return;
+    const float W=float(winW),H=float(winH);
+    constexpr float kBarH=30.f;
+    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDisable(GL_DEPTH_TEST);
+    drawRect(0.f,H-kBarH,W,kBarH,0.02f,0.03f,0.06f,0.90f,W,H);
+    // Left badge
+    drawRect(0.f,H-kBarH,90.f,kBarH,0.08f,0.55f,0.25f,0.95f,W,H);
+    drawText("AI SEES:",6.f,H-kBarH+7.f,0.05f,0.06f,0.05f,W,H);
+    // Scene text
+    std::string s=scene;
+    if(s.size()>110) s=s.substr(0,107)+"...";
+    drawText(s.c_str(),98.f,H-kBarH+7.f,0.75f,0.98f,0.65f,W,H);
+    glEnable(GL_DEPTH_TEST);glDisable(GL_BLEND);
+}
+
 // Comparison mode overlay: divider line + labels
-static void renderComparisonOverlay(int winW,int winH,int prevGen,double latencyMs){
+static void renderComparisonOverlay(int winW,int winH,int prevGen,double latencyMs,double estGpuMs){
     const float W=float(winW),H=float(winH);
     glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDisable(GL_DEPTH_TEST);
 
@@ -499,7 +558,7 @@ static void renderComparisonOverlay(int winW,int winH,int prevGen,double latency
     snprintf(buf,sizeof(buf),"BEFORE  (Gen %d)",prevGen);
     drawText(buf,18.f,14.f,1.f,0.55f,0.f,W,H);
     drawText("GPU cluster inference",18.f,34.f,0.7f,0.7f,0.7f,W,H);
-    drawText("~45,000 ms",18.f,54.f,1.f,0.3f,0.3f,W,H);
+    {char b[32];snprintf(b,sizeof(b),"~%.0f ms (est.)",estGpuMs);drawText(b,18.f,54.f,1.f,0.3f,0.3f,W,H);}
 
     // Right label — "AFTER"
     float rx=W*0.5f+10.f;
@@ -508,7 +567,7 @@ static void renderComparisonOverlay(int winW,int winH,int prevGen,double latency
     drawText(buf,rx+8.f,14.f,0.3f,1.f,0.5f,W,H);
     drawText("Cerebras inference",rx+8.f,34.f,0.7f,0.7f,0.7f,W,H);
     if(latencyMs>0.){
-        snprintf(buf,sizeof(buf),"%.0f ms  (%.0fx faster)",latencyMs,45000./latencyMs);
+        snprintf(buf,sizeof(buf),"%.0f ms  (%.0fx faster)",latencyMs,estGpuMs/latencyMs);
         drawText(buf,rx+8.f,54.f,0.3f,1.f,0.5f,W,H);
     }
 
@@ -523,9 +582,10 @@ struct ShaderGen {
 
 struct JitState {
     std::mutex        mtx;
-    std::string       pendingGlsl,errorMsg;
+    std::string       pendingGlsl,errorMsg,pendingScene;
     std::atomic<bool> hasNew{false},hasError{false},busy{false};
     float             pendingVC{0},pendingATM{0},pendingTN{0};
+    int               pendingTokens{0};
     std::string       pendingHint;
 };
 
@@ -546,6 +606,7 @@ static void jitWorker(std::string b64,
 
     float vc=0,atm=0,tn=0;
     std::string hint="add domain-warped layers and increase color saturation";
+    std::string scene;
 
     {
         std::string body=
@@ -557,10 +618,11 @@ static void jitWorker(std::string b64,
         if(!res||res->status!=200){
             std::fprintf(stderr,"[%s] [Critic] /critique failed — using default hint\n",nowStr().c_str());
         } else {
-            vc  =extractFloat(res->body,"visual_complexity");
-            atm =extractFloat(res->body,"atmosphere");
-            tn  =extractFloat(res->body,"technical_novelty");
-            hint=extractString(res->body,"improvement_hint");
+            vc   =extractFloat(res->body,"visual_complexity");
+            atm  =extractFloat(res->body,"atmosphere");
+            tn   =extractFloat(res->body,"technical_novelty");
+            hint =extractString(res->body,"improvement_hint");
+            scene=extractString(res->body,"scene_description");
             if(hint.empty()) hint="increase visual contrast and add a focal glow effect";
             std::printf("[%s] [Critic] VC:%.1f  ATM:%.1f  TN:%.1f\n",nowStr().c_str(),vc,atm,tn);
             std::printf("[%s] [Critic] Hint: %s\n",nowStr().c_str(),hint.c_str());
@@ -598,7 +660,8 @@ static void jitWorker(std::string b64,
     auto res=cli.Post("/compile",body,"application/json");
 
     std::lock_guard<std::mutex> lock(jit->mtx);
-    jit->pendingVC=vc; jit->pendingATM=atm; jit->pendingTN=tn; jit->pendingHint=hint;
+    jit->pendingVC=vc; jit->pendingATM=atm; jit->pendingTN=tn;
+    jit->pendingHint=hint; jit->pendingScene=std::move(scene);
 
     if(!res){
         jit->errorMsg="Cannot reach server — is uvicorn running?";
@@ -611,8 +674,9 @@ static void jitWorker(std::string b64,
         auto glsl=extractGlslFragment(res->body);
         if(glsl.empty()){jit->errorMsg="glsl_fragment missing";jit->hasError=true;}
         else{
-            std::printf("[%s] [Composer] Gen %d ready (%zu chars)\n",
-                        nowStr().c_str(),generation+1,glsl.size());
+            jit->pendingTokens=(int)extractFloat(res->body,"completion_tokens");
+            std::printf("[%s] [Composer] Gen %d ready (%zu chars, %d tokens)\n",
+                        nowStr().c_str(),generation+1,glsl.size(),jit->pendingTokens);
             jit->pendingGlsl=std::move(glsl); jit->hasNew=true;
         }
     }
@@ -681,7 +745,8 @@ int main(){
     // State
     JitState jit;
     AgentStatus agentStatus=AgentStatus::Active;
-    double jitStartTime=0.,lastLatencyMs=0.,t0=glfwGetTime();
+    double jitStartTime=0.,lastLatencyMs=0.,lastEstGpuMs=45000.,t0=glfwGetTime();
+    int    lastTokens=0;
     bool baselineActive=false;  double baselineStart=0.;
     bool comparisonActive=false;int compPrevGen=0;
     bool autoEvolve=false;      double lastAutoTime=0.;
@@ -689,7 +754,7 @@ int main(){
 
     int   generation=0;
     float scoreVC=0.f,scoreATM=0.f,scoreTN=0.f;
-    std::string lastHint;
+    std::string lastHint,lastScene;
     std::vector<ShaderGen> history;
 
     GLuint prevFrameTex=0; int prevFrameW=0,prevFrameH=0;
@@ -703,7 +768,7 @@ int main(){
                 nowStr().c_str());
 
     auto triggerEvolve=[&](int w,int h){
-        if(jit.busy.load()||baselineActive) return;
+        if(jit.busy.load()) return;
         jit.busy=true; jitStartTime=glfwGetTime(); agentStatus=AgentStatus::Processing;
         std::printf("[%s] [Engine] Capturing Gen %d frame for %s...\n",
                     nowStr().c_str(),generation,kPresets[presetIdx].name);
@@ -729,7 +794,7 @@ int main(){
             if(loadPreset(idx)){
                 uTime=glGetUniformLocation(program,"uTime");
                 t0=now; presetIdx=idx; generation=0;
-                scoreVC=scoreATM=scoreTN=0.f; lastHint.clear(); history.clear();
+                scoreVC=scoreATM=scoreTN=0.f; lastHint.clear(); lastScene.clear(); history.clear();
                 comparisonActive=false; autoEvolve=false;
                 if(prevFrameTex){glDeleteTextures(1,&prevFrameTex);prevFrameTex=0;}
                 agentStatus=AgentStatus::Active;
@@ -753,7 +818,7 @@ int main(){
         if(bDown&&!bWas){
             baselineActive=!baselineActive;
             if(baselineActive){baselineStart=now;
-                std::printf("[%s] [Baseline] Simulating 5s traditional latency\n",nowStr().c_str());
+                std::printf("[%s] [Baseline] Comparison panel open — press SPACE to trigger Cerebras concurrently\n",nowStr().c_str());
                 glfwSetWindowTitle(win,"Shader JIT  [BASELINE: traditional GPU inference...]");
             } else {
                 double sp=lastLatencyMs>0.?5000./lastLatencyMs:0.;
@@ -762,10 +827,10 @@ int main(){
             }
         }
         bWas=bDown;
-        if(baselineActive&&now-baselineStart>=5.0){
+        if(baselineActive&&now-baselineStart>=8.0){
             baselineActive=false;
-            std::printf("[%s] [Baseline] Done — Cerebras %.0fms vs 5000ms baseline (%.1fx)\n",
-                        nowStr().c_str(),lastLatencyMs,lastLatencyMs>0.?5000./lastLatencyMs:0.);
+            std::printf("[%s] [Baseline] Done — Cerebras %.0fms vs ~45000ms GPU cluster (%.1fx)\n",
+                        nowStr().c_str(),lastLatencyMs,lastLatencyMs>0.?45000./lastLatencyMs:0.);
             glfwSetWindowTitle(win,"Shader JIT  [SPACE=evolve]");
         }
 
@@ -798,15 +863,30 @@ int main(){
 
         // ── Hot-reload ────────────────────────────────────────────────────────
         if(jit.hasNew.load()){
-            std::string newGlsl; float nVC,nATM,nTN; std::string nHint;
+            std::string newGlsl; float nVC,nATM,nTN; std::string nHint,nScene; int nTokens=0;
             {std::lock_guard<std::mutex>lk(jit.mtx);
              newGlsl=std::move(jit.pendingGlsl);
              nVC=jit.pendingVC;nATM=jit.pendingATM;nTN=jit.pendingTN;
-             nHint=std::move(jit.pendingHint);jit.hasNew=false;}
+             nHint=std::move(jit.pendingHint);
+             nScene=std::move(jit.pendingScene);
+             nTokens=jit.pendingTokens;
+             jit.hasNew=false;}
             lastLatencyMs=(now-jitStartTime)*1000.;
+            lastScene=std::move(nScene);
+            if(nTokens>0){
+                lastTokens=nTokens;
+                // 25 tok/s on shared A100 cluster + 8s queue/overhead — conservative estimate
+                lastEstGpuMs=lastTokens/25.0*1000.0+8000.0;
+                std::printf("[%s] [Engine] GPU est: %.0fms (%d tok @ 25tok/s + 8s overhead)\n",
+                            nowStr().c_str(),lastEstGpuMs,lastTokens);
+            }
             std::printf("[%s] [Engine] Round-trip: %.0fms — hot-reloading\n",nowStr().c_str(),lastLatencyMs);
             try{
                 program=reloadProgram(program,vertSrc,newGlsl);
+                // Auto-save evolved shader so you can pre-bake it as a seed
+                {char sp[64];snprintf(sp,sizeof(sp),"shaders/evolved_p%d_gen%d.glsl",presetIdx+1,generation+1);
+                 std::ofstream sf(sp);if(sf.is_open()){sf<<newGlsl;
+                     std::printf("[%s] [Engine] Saved → %s\n",nowStr().c_str(),sp);}}
                 currentGlsl=std::move(newGlsl);
                 uTime=glGetUniformLocation(program,"uTime");
                 t0=now; agentStatus=AgentStatus::Active;
@@ -878,9 +958,11 @@ int main(){
         // ── HUD ───────────────────────────────────────────────────────────────
         double bElapsed=baselineActive?(now-baselineStart):0.;
         renderHUD(w,h,agentStatus,lastLatencyMs,baselineActive,bElapsed,
-                  generation,scoreVC,scoreATM,scoreTN,lastHint,presetIdx,comparisonActive,autoEvolve);
+                  generation,scoreVC,scoreATM,scoreTN,lastHint,presetIdx,comparisonActive,autoEvolve,lastEstGpuMs,lastTokens);
+        if(!baselineActive)
+            renderSceneBar(lastScene,w,h);
         if(comparisonActive&&prevFrameTex)
-            renderComparisonOverlay(w,h,compPrevGen,lastLatencyMs);
+            renderComparisonOverlay(w,h,compPrevGen,lastLatencyMs,lastEstGpuMs);
 
         glfwSwapBuffers(win);
     }

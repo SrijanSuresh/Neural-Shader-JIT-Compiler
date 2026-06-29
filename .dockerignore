@@ -1,6 +1,8 @@
 venv/
 build/
+.git/
 __pycache__/
 *.pyc
+*.pyo
+shaders/evolved_*.glsl
 .env
-.git/
