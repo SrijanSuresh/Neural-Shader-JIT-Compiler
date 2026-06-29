@@ -24,7 +24,7 @@ A real-time GPU shader evolution system powered by **Cerebras ultra-fast inferen
 <table>
 <tr>
 <td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><img src="media/darkfantasy_small.gif" width="420"/></td>
-<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="media/anime_small.gif" width="420"/></td>
+<td align="center"><b>Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="media/anime_small.gif" width="420"/></td>
 </tr>
 <tr>
 <td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><img src="media/biomed_small.gif" width="420"/></td>
@@ -204,8 +204,8 @@ cd build
 
 | Key | Action |
 |---|---|
-| `1` | **Dark Fantasy** preset (Bloodborne / Elden Ring) |
-| `2` | **Persona / Anime** preset (Persona 5, vibrant geometric) |
+| `1` | **Dark Fantasy** preset |
+| `2` | **Anime** preset (vibrant geometric) |
 | `3` | **Biomedical** preset (fluorescence microscopy) |
 | `4` | **Cosmic / Space** preset (nebula, star fields) |
 | `SPACE` | Evolve current shader — triggers Critic then Composer |
@@ -218,12 +218,12 @@ cd build
 
 ## Presets
 
-### `1` — Dark Fantasy *(Bloodborne / Elden Ring)*
+### `1` — Dark Fantasy *(Bloodborne / Elden Ring Inspired)*
 Domain-warped 6-octave fbm fog with crimson → violet → amber palette. Blood moon glow, eldritch rune ring shimmer, vignette. Evolves toward denser mist, sharper rune SDF glyphs, and more complex warp layers.
 
 **Critic axes:** eldritch dread atmosphere · crimson fog density · domain-warp complexity
 
-### `2` — Persona / Anime *(Persona 5)*
+### `2` — Anime *(Persona 5 Inspired)*
 Rotating SDF box frames, diamond tile patterns, concentric ring grids, radial all-out-attack glow. Electric yellow, hot pink, cyan palette with anime scan-line filter. Evolves toward richer geometric layering and stylized motion.
 
 **Critic axes:** pop-art energy · geometric precision · animated stylization
