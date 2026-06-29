@@ -23,12 +23,12 @@ A real-time GPU shader evolution system powered by **Cerebras ultra-fast inferen
 <div align="center">
 <table>
 <tr>
-<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><video src="media/darkfantasy.mp4" autoplay loop muted playsinline width="420"></video></td>
-<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><video src="media/anime.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><img src="media/darkfantasy_small.gif" width="420"/></td>
+<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="media/anime_small.gif" width="420"/></td>
 </tr>
 <tr>
-<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><video src="media/biomed.mp4" autoplay loop muted playsinline width="420"></video></td>
-<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><video src="media/planet.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><img src="media/biomed_small.gif" width="420"/></td>
+<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><img src="media/planet_small.gif" width="420"/></td>
 </tr>
 </table>
 </div>
