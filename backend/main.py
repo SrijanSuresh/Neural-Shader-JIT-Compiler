@@ -1,12 +1,26 @@
 import json
 import os
+from contextlib import asynccontextmanager
 
 import openai
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Shader JIT Orchestrator")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    api_key = os.environ.get("CEREBRAS_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "CEREBRAS_API_KEY is not set. "
+            "Add it to your .env file and run: docker compose down && docker compose up -d"
+        )
+    print(f"[Startup] CEREBRAS_API_KEY present ({len(api_key)} chars) ✓", flush=True)
+    yield
+
+
+app = FastAPI(title="Shader JIT Orchestrator", lifespan=lifespan)
 
 _MODEL = "gemma-4-31b"
 _BASE_URL = "https://api.cerebras.ai/v1"
