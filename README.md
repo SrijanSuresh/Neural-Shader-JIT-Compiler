@@ -23,12 +23,12 @@ A real-time GPU shader evolution system powered by **Cerebras ultra-fast inferen
 <div align="center">
 <table>
 <tr>
-<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/darkfantasy.mp4" autoplay loop muted playsinline width="420"></video></td>
-<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/anime.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><video src="media/darkfantasy.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><video src="media/anime.mp4" autoplay loop muted playsinline width="420"></video></td>
 </tr>
 <tr>
-<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/biomed.mp4" autoplay loop muted playsinline width="420"></video></td>
-<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/planet.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><video src="media/biomed.mp4" autoplay loop muted playsinline width="420"></video></td>
+<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><video src="media/planet.mp4" autoplay loop muted playsinline width="420"></video></td>
 </tr>
 </table>
 </div>
