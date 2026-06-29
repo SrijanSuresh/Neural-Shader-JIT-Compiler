@@ -380,7 +380,7 @@ static void renderHUD(int winW,int winH,
                        int generation,float sVC,float sATM,float sTN,
                        const std::string& lastHint,
                        int presetIdx,bool comparisonActive,bool autoEvolve,
-                       double estGpuMs) {
+                       double estGpuMs, int lastTokens) {
     const float W=float(winW),H=float(winH);
     const float pad=12.f,lh=20.f;
 
@@ -388,7 +388,7 @@ static void renderHUD(int winW,int winH,
 
     if(baselineActive){
         // ── Side-by-side latency comparison panel ─────────────────────────────
-        const float cpW=480.f,cpH=185.f;
+        const float cpW=480.f,cpH=210.f;
         const float cpX=(W-cpW)*0.5f,cpY=(H-cpH)*0.5f;
         char buf[256];
         const float barW=cpW-40.f;
@@ -432,7 +432,15 @@ static void renderHUD(int winW,int winH,
         ty+=lh;
         drawRect(cpX+20.f,ty+2.f,barW,12.f,0.18f,0.05f,0.05f,1.f,W,H);
         if(gpuFrac>0.f) drawRect(cpX+20.f,ty+2.f,barW*gpuFrac,12.f,0.82f,0.1f,0.08f,1.f,W,H);
-        ty+=lh+12.f;
+        ty+=lh+4.f;
+
+        // Formula line — shows judges exactly how estimate is derived
+        if(lastTokens>0)
+            snprintf(buf,sizeof(buf),"est: %d tok / 25tok/s + 8s queue overhead",lastTokens);
+        else
+            snprintf(buf,sizeof(buf),"est: default 45s / 25tok/s + 8s queue overhead");
+        drawText(buf,tx+4.f,ty,0.52f,0.27f,0.27f,W,H);
+        ty+=lh+4.f;
 
         // ── Speed summary ─────────────────────────────────────────────────────
         if(latencyMs>0.){
@@ -478,12 +486,20 @@ static void renderHUD(int winW,int winH,
             snprintf(buf,sizeof(buf),"Status:  %s",sl);
             drawText(buf,tx,ty,sr,sg,sb,W,H);ty+=lh;
 
-            // Latency + speedup (always two lines for consistent panel height)
+            // Latency + throughput + speedup (always two lines for consistent panel height)
             if(latencyMs>0.){
-                snprintf(buf,sizeof(buf),"Latency: %.0f ms",latencyMs);
-                drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
-                snprintf(buf,sizeof(buf),"  %.0fx faster than GPU cluster",estGpuMs/latencyMs);
-                drawText(buf,tx,ty,0.2f,1.f,0.45f,W,H);ty+=lh;
+                if(lastTokens>0){
+                    snprintf(buf,sizeof(buf),"Latency: %.0f ms  (%d tok)",latencyMs,lastTokens);
+                    drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
+                    double tokPerSec=lastTokens/(latencyMs/1000.);
+                    snprintf(buf,sizeof(buf),"  %.0f tok/s  |  %.0fx vs GPU est.",tokPerSec,estGpuMs/latencyMs);
+                    drawText(buf,tx,ty,0.2f,1.f,0.45f,W,H);ty+=lh;
+                } else {
+                    snprintf(buf,sizeof(buf),"Latency: %.0f ms",latencyMs);
+                    drawText(buf,tx,ty,1.f,1.f,1.f,W,H);ty+=lh;
+                    snprintf(buf,sizeof(buf),"  %.0fx faster than GPU cluster",estGpuMs/latencyMs);
+                    drawText(buf,tx,ty,0.2f,1.f,0.45f,W,H);ty+=lh;
+                }
             } else {
                 drawText("Latency: --",tx,ty,0.6f,0.6f,0.6f,W,H);ty+=lh;
                 ty+=lh;
@@ -802,7 +818,7 @@ int main(){
         if(bDown&&!bWas){
             baselineActive=!baselineActive;
             if(baselineActive){baselineStart=now;
-                std::printf("[%s] [Baseline] Simulating 5s traditional latency\n",nowStr().c_str());
+                std::printf("[%s] [Baseline] Comparison panel open — press SPACE to trigger Cerebras concurrently\n",nowStr().c_str());
                 glfwSetWindowTitle(win,"Shader JIT  [BASELINE: traditional GPU inference...]");
             } else {
                 double sp=lastLatencyMs>0.?5000./lastLatencyMs:0.;
@@ -942,7 +958,7 @@ int main(){
         // ── HUD ───────────────────────────────────────────────────────────────
         double bElapsed=baselineActive?(now-baselineStart):0.;
         renderHUD(w,h,agentStatus,lastLatencyMs,baselineActive,bElapsed,
-                  generation,scoreVC,scoreATM,scoreTN,lastHint,presetIdx,comparisonActive,autoEvolve,lastEstGpuMs);
+                  generation,scoreVC,scoreATM,scoreTN,lastHint,presetIdx,comparisonActive,autoEvolve,lastEstGpuMs,lastTokens);
         if(!baselineActive)
             renderSceneBar(lastScene,w,h);
         if(comparisonActive&&prevFrameTex)
