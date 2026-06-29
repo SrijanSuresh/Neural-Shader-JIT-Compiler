@@ -386,43 +386,62 @@ static void renderHUD(int winW,int winH,
     glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDisable(GL_DEPTH_TEST);
 
     if(baselineActive){
-        // ── Big centered "dead screen" panel ──────────────────────────────────
-        const float cpW=460.f,cpH=200.f;
+        // ── Side-by-side latency comparison panel ─────────────────────────────
+        const float cpW=480.f,cpH=185.f;
         const float cpX=(W-cpW)*0.5f,cpY=(H-cpH)*0.5f;
         char buf[256];
+        const float barW=cpW-40.f;
+        constexpr double kBaseDur=8.0; // 8 real seconds represents 45 simulated seconds
 
-        // Red-tinted border (danger signal)
-        drawRect(cpX-3.f,cpY-3.f,cpW+6.f,cpH+6.f,0.75f,0.08f,0.08f,0.85f,W,H);
-        drawRect(cpX,cpY,cpW,cpH,0.06f,0.02f,0.02f,0.97f,W,H);
+        drawRect(cpX-3.f,cpY-3.f,cpW+6.f,cpH+6.f,0.4f,0.05f,0.05f,0.9f,W,H);
+        drawRect(cpX,cpY,cpW,cpH,0.05f,0.02f,0.03f,0.97f,W,H);
 
-        float tx=cpX+20.f,ty=cpY+16.f;
+        float tx=cpX+20.f,ty=cpY+14.f;
 
-        drawText("TRADITIONAL GPU CLUSTER",tx,ty,1.f,0.25f,0.1f,W,H);ty+=lh*1.3f;
-        drawText("No real-time feedback loop possible at this latency",
-                 tx,ty,0.65f,0.55f,0.55f,W,H);ty+=lh*1.15f;
+        drawText("LATENCY COMPARISON",tx,ty,0.78f,0.78f,0.78f,W,H);ty+=lh*1.3f;
 
-        // Progress bar scaled to imply 45s (fills in 5s for demo)
-        float barW=cpW-40.f;
-        float prog=float(baselineElapsed/5.0);
-        drawRect(cpX+20.f,ty+2.f,barW,18.f,0.18f,0.05f,0.05f,1.f,W,H);
-        if(prog>0.f) drawRect(cpX+20.f,ty+2.f,barW*prog,18.f,0.82f,0.08f,0.08f,1.f,W,H);
-        ty+=lh*1.6f;
-
-        snprintf(buf,sizeof(buf),"Waiting...  %.0f s / ~45 s  (demo compressed 9x)",
-                 baselineElapsed*9.0f);
-        drawText(buf,tx,ty,0.9f,0.85f,0.85f,W,H);ty+=lh*1.1f;
-
+        // ── Cerebras row ──────────────────────────────────────────────────────
+        drawText("CEREBRAS",tx,ty,0.25f,1.f,0.45f,W,H);
         if(latencyMs>0.){
-            snprintf(buf,sizeof(buf),"Cerebras finished this in %.0f ms — %.0fx faster",
-                     latencyMs,45000./latencyMs);
-            drawText(buf,tx,ty,0.45f,0.45f,0.45f,W,H);
+            snprintf(buf,sizeof(buf),"DONE  %.0f ms",latencyMs);
+            drawText(buf,cpX+cpW-165.f,ty,0.25f,1.f,0.45f,W,H);
+        } else if(status==AgentStatus::Processing){
+            drawText("Running...",cpX+cpW-130.f,ty,0.5f,0.85f,0.5f,W,H);
         } else {
-            drawText("[B] skip  |  Cerebras solved this in ~4s already",
-                     tx,ty,0.45f,0.45f,0.45f,W,H);
+            drawText("[SPACE] to start",cpX+cpW-175.f,ty,0.42f,0.42f,0.42f,W,H);
+        }
+        ty+=lh;
+        drawRect(cpX+20.f,ty+2.f,barW,12.f,0.04f,0.12f,0.04f,1.f,W,H);
+        if(latencyMs>0.){
+            drawRect(cpX+20.f,ty+2.f,barW,12.f,0.15f,0.88f,0.3f,1.f,W,H);
+        } else if(status==AgentStatus::Processing){
+            float p=0.35f+0.3f*float(sin(baselineElapsed*5.0));
+            drawRect(cpX+20.f,ty+2.f,barW*p,12.f,0.12f,0.72f,0.25f,1.f,W,H);
+        }
+        ty+=lh+8.f;
+
+        // ── GPU cluster row ───────────────────────────────────────────────────
+        float gpuFrac=float(baselineElapsed/kBaseDur);
+        if(gpuFrac>1.f) gpuFrac=1.f;
+        float simSec=float(baselineElapsed*(45.0/kBaseDur));
+        drawText("GPU CLUSTER",tx,ty,1.f,0.3f,0.15f,W,H);
+        snprintf(buf,sizeof(buf),"%.0f / 45 s",simSec);
+        drawText(buf,cpX+cpW-140.f,ty,0.9f,0.42f,0.32f,W,H);
+        ty+=lh;
+        drawRect(cpX+20.f,ty+2.f,barW,12.f,0.18f,0.05f,0.05f,1.f,W,H);
+        if(gpuFrac>0.f) drawRect(cpX+20.f,ty+2.f,barW*gpuFrac,12.f,0.82f,0.1f,0.08f,1.f,W,H);
+        ty+=lh+12.f;
+
+        // ── Speed summary ─────────────────────────────────────────────────────
+        if(latencyMs>0.){
+            snprintf(buf,sizeof(buf),"Cerebras is  %.0fx FASTER  than GPU cluster",45000./latencyMs);
+            drawText(buf,tx,ty,1.f,0.88f,0.08f,W,H);
+        } else {
+            drawText("No real-time feedback loop at GPU cluster latency",
+                     tx,ty,0.58f,0.45f,0.45f,W,H);
         }
 
-        // Small corner reminder
-        drawText("Press [B] to exit baseline",W-200.f,H-28.f,0.38f,0.38f,0.38f,W,H);
+        drawText("[B] exit",W-88.f,H-26.f,0.35f,0.35f,0.35f,W,H);
 
     } else {
         // ── Corner info panel (normal mode) ───────────────────────────────────
@@ -728,7 +747,7 @@ int main(){
                 nowStr().c_str());
 
     auto triggerEvolve=[&](int w,int h){
-        if(jit.busy.load()||baselineActive) return;
+        if(jit.busy.load()) return;
         jit.busy=true; jitStartTime=glfwGetTime(); agentStatus=AgentStatus::Processing;
         std::printf("[%s] [Engine] Capturing Gen %d frame for %s...\n",
                     nowStr().c_str(),generation,kPresets[presetIdx].name);
@@ -787,10 +806,10 @@ int main(){
             }
         }
         bWas=bDown;
-        if(baselineActive&&now-baselineStart>=5.0){
+        if(baselineActive&&now-baselineStart>=8.0){
             baselineActive=false;
-            std::printf("[%s] [Baseline] Done — Cerebras %.0fms vs 5000ms baseline (%.1fx)\n",
-                        nowStr().c_str(),lastLatencyMs,lastLatencyMs>0.?5000./lastLatencyMs:0.);
+            std::printf("[%s] [Baseline] Done — Cerebras %.0fms vs ~45000ms GPU cluster (%.1fx)\n",
+                        nowStr().c_str(),lastLatencyMs,lastLatencyMs>0.?45000./lastLatencyMs:0.);
             glfwSetWindowTitle(win,"Shader JIT  [SPACE=evolve]");
         }
 
