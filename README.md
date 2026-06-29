@@ -2,6 +2,37 @@
 
 A real-time GPU shader evolution system powered by **Cerebras ultra-fast inference** (Gemma 4 31B). The AI *watches* what the GPU renders, critiques it, and rewrites the GLSL shader code live — full round-trip in 2–6 seconds across four domains: dark fantasy, anime, biomedical, and cosmic.
 
+---
+
+## Demo
+
+<div align="center">
+
+<video src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/demo.mp4" controls width="800"></video>
+
+</div>
+
+---
+
+## Preset Gallery
+
+<div align="center">
+<table>
+<tr>
+<td align="center"><b>Dark Fantasy</b> &nbsp;·&nbsp; <kbd>1</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/darkfantasy.gif" width="420"/></td>
+<td align="center"><b>Persona / Anime</b> &nbsp;·&nbsp; <kbd>2</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/anime.gif" width="420"/></td>
+</tr>
+<tr>
+<td align="center"><b>Biomedical</b> &nbsp;·&nbsp; <kbd>3</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/biomed.gif" width="420"/></td>
+<td align="center"><b>Cosmic / Space</b> &nbsp;·&nbsp; <kbd>4</kbd><br><img src="https://github.com/SrijanSuresh/Neural-Shader-JIT-Compiler/releases/download/demo/planet.gif" width="420"/></td>
+</tr>
+</table>
+</div>
+
+---
+
+## Pipeline
+
 ```
 Live Render → Base64 PNG → Cerebras Critic  → scores + scene_description
                                    ↓
@@ -38,28 +69,39 @@ All Cerebras numbers are **measured live** — the HUD shows `completion_tokens`
 
 ### Estimated (GPU cluster baseline)
 
-The baseline comparison panel uses this formula, displayed on-screen:
+The on-screen baseline panel derives the GPU cluster estimate **instantly** from the token count returned by Cerebras. No real benchmark is run — the math is:
 
-```
-GPU cluster estimate = tokens ÷ 25 tok/s + 8 s queue overhead
-```
+$$t_{\text{GPU}} = \frac{N_{\text{tok}}}{25 \ \text{tok/s}} \times 1000 + 8000 \ \text{ms}$$
 
-| Parameter | Value | Rationale |
+where:
+
+| Symbol | Value | Rationale |
 |---|---|---|
-| 25 tok/s | Conservative per-request throughput | Shared A100 serving a 31B model under queue load. Dedicated single-A100 in fp16 achieves ~50–80 tok/s; shared clusters with queue are slower. This is the realistic enterprise scenario. |
-| 8 s overhead | TTFT + queue wait | Time-to-first-token for 31B on A100 (~2–5s) + API/queue overhead (~3–5s). |
+| $N_{\text{tok}}$ | `completion_tokens` from API response | Exact count returned by Cerebras after each evolution |
+| $25 \ \text{tok/s}$ | Conservative shared-A100 throughput | A dedicated A100 in fp16 achieves ~50–80 tok/s; under shared cluster queue load with a 31B model, 25 tok/s is the realistic enterprise scenario |
+| $8000 \ \text{ms}$ | TTFT + queue overhead | Time-to-first-token on A100 for 31B (~2–5 s) + API/scheduling overhead (~3–5 s) |
 
-After the first Cerebras evolution, the panel derives `tokens` from the actual `completion_tokens` value and recalculates live. The formula and token count are printed on-screen so the estimate is fully auditable.
+The speedup ratio displayed on the HUD is:
+
+$$\text{speedup} = \frac{t_{\text{GPU}}}{t_{\text{Cerebras}}}$$
+
+Because the formula uses the *actual* token count from each evolution, the estimate changes every generation — a 4,000-token generation yields ~111,720 ms vs a 500-token one at ~28,000 ms. Both are computed in microseconds; only $t_{\text{Cerebras}}$ is wall-clock measured.
+
+After the first Cerebras evolution, the formula and token count are printed on-screen so the estimate is fully auditable.
 
 ### Speedup comparison (example)
 
 For a 487-token GLSL shader at 3,812 ms Cerebras round-trip:
 
+$$t_{\text{GPU}} = \frac{487}{25} \times 1000 + 8000 = 19{,}480 + 8{,}000 = 27{,}480 \ \text{ms}$$
+
+$$\text{speedup} = \frac{27{,}480}{3{,}812} \approx 7.2\times$$
+
 | | Cerebras (measured) | GPU cluster (est.) |
 |---|---|---|
-| Time | **3,812 ms** | ~28,000 ms (487 tok ÷ 25/s + 8s) |
+| Time | **3,812 ms** | ~27,480 ms |
 | Throughput | **~116 tok/s end-to-end** | ~25 tok/s |
-| Speedup | — | **7.3x faster** |
+| Speedup | — | **7.2× faster** |
 
 ---
 
@@ -97,6 +139,7 @@ The renderer never crashes on bad model output. The seed shader always runs as a
 
 - **Windows 10/11** with MinGW-w64 (`scoop install mingw cmake make`)
 - **Python 3.10+**
+- **Docker Desktop** (recommended — handles backend environment automatically)
 - **Cerebras API key** — get access to `gemma-4-31b` at [cerebras.ai](https://cerebras.ai)
 - **OpenGL 3.3+** GPU (any modern integrated or discrete GPU)
 
@@ -113,17 +156,16 @@ cd Neural-Shader-JIT-Compiler
 
 ### 2. Set your API key
 
-```powershell
-# Create .env (never committed)
-"CEREBRAS_API_KEY=csk-your-key-here" | Out-File .env
+```bash
+# Create .env (gitignored — never committed)
+echo "CEREBRAS_API_KEY=csk-your-key-here" > .env
 ```
 
-### 3. Python backend
+### 3. Start the backend (Docker — recommended)
 
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install fastapi uvicorn openai
+```bash
+docker compose up -d --build
+docker compose logs orchestrator   # should print: CEREBRAS_API_KEY present (XX chars) ✓
 ```
 
 ### 4. C++ renderer
@@ -138,7 +180,7 @@ mingw32-make -j4
 
 ## Running
 
-**Terminal 1 — backend:**
+**Terminal 1 — backend (if not using Docker):**
 ```powershell
 $env:CEREBRAS_API_KEY = "csk-your-key-here"
 .\venv\Scripts\python.exe -m uvicorn backend.main:app --port 8000
@@ -149,6 +191,8 @@ $env:CEREBRAS_API_KEY = "csk-your-key-here"
 cd build
 .\shader_jit_engine.exe
 ```
+
+> **Tip:** If using Docker, never run a second uvicorn on port 8000 in the same Windows session — it will shadow Docker's port binding and intercept all requests without the API key.
 
 ---
 
@@ -162,7 +206,7 @@ cd build
 | `4` | **Cosmic / Space** preset (nebula, star fields) |
 | `SPACE` | Evolve current shader — triggers Critic then Composer |
 | `B` | **Baseline comparison** — two-bar panel: Cerebras (snaps green when done) vs GPU cluster estimate (crawls over 8s). Press SPACE while panel is open to run a live Cerebras evolution concurrently. |
-| `C` | **Split-screen compare**: left = frozen pre-evolution frame, right = live Cerebras result |
+| `C` | **Split-screen compare**: left = frozen pre-evolution frame, right = live Cerebras result. Requires at least one SPACE press first. |
 | `A` | **Auto-evolve**: fires SPACE every 20 s automatically (great for demos) |
 | `ESC` | Quit |
 
@@ -314,7 +358,7 @@ Response:
 }
 ```
 
-`completion_tokens` is used live: the renderer computes `tokens ÷ 25 tok/s + 8s overhead` as the GPU cluster estimate and updates the baseline panel and HUD speedup ratio after every evolution.
+`completion_tokens` is used live: the renderer computes $t_{\text{GPU}} = N_{\text{tok}} / 25 \times 1000 + 8000$ ms as the GPU cluster estimate and updates the baseline panel and HUD speedup ratio after every evolution.
 
 ---
 
@@ -336,7 +380,7 @@ Response:
 └─────────┼───────────────────────────────────────────────┘
           │ HTTP localhost:8000
 ┌─────────▼───────────────────────────────────────────────┐
-│  Python FastAPI  (uvicorn)                              │
+│  Python FastAPI  (uvicorn / Docker)                     │
 │  POST /critique → gemma-4-31b  strict JSON schema        │
 │  POST /compile  → gemma-4-31b  strict JSON schema        │
 │                   Cerebras API  https://api.cerebras.ai │
